@@ -106,6 +106,15 @@ router.get('/users/me', auth, async (req, res) => {
   res.status(200).send({ user: req.user })
 })
 
+router.get('/users/:id', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id)
+    res.status(200).send({ user })
+  } catch (error) {
+    res.status(400).send({ error })
+  }
+})
+
 router.post('/users/logout', auth, async (req, res) => {
   res.clearCookie('tid', { path: '/users/refresh_token' })
 

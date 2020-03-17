@@ -16,10 +16,6 @@ const gameSchema = new Schema(
     player2: {
       type: Schema.Types.ObjectId
     },
-    turn: {
-      type: String,
-      default: null
-    },
     board: {
       type: [String],
       enum: ['X', 'O', null],
@@ -29,16 +25,14 @@ const gameSchema = new Schema(
       type: Number,
       default: 0
     },
-    result: {
-      winner: Schema.Types.ObjectId,
-      loser: Schema.Types.ObjectId,
-      draw: {
-        type: Boolean,
-        default: false
-      },
-      winningIndexes: {
-        type: Array
-      }
+    winner: Schema.Types.ObjectId,
+    loser: Schema.Types.ObjectId,
+    draw: {
+      type: Boolean,
+      default: false
+    },
+    winningIndexes: {
+      type: Array
     }
   },
   { timestamps: true }
