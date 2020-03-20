@@ -1,4 +1,5 @@
 const socketio = require('socket.io')
+const { verify } = require('jsonwebtoken')
 
 const { calculateWinner, isValidToken } = require('../helpers')
 const { Game } = require('../models')
@@ -25,12 +26,22 @@ function socketInit(server) {
 
     socket.on('join', async ({ gameId }) => {
       const game = await Game.findById(gameId)
+      const accessToken = socket.handshake.query.token
+      const { userId } = verify(accessToken, process.env.ACCESS_TOKEN_SECRET)
+
+      if (userId == game.player1) {
+        game.player1Status = 'connected'
+      } else if (userId == game.player2) {
+        game.player2Status = 'connected'
+      }
+
+      const updatedGame = await game.save()
+
       socket.join(gameId)
-      io.to(gameId).emit('game_update', { game })
+      io.to(gameId).emit('game_update', { game: updatedGame })
     })
 
     socket.on('click', async ({ gameId, index }) => {
-      console.log(gameId, index)
       try {
         const game = await Game.findById(gameId)
         // user can click (interact) with the active game
@@ -59,21 +70,13 @@ function socketInit(server) {
             game.winningIndexes = game.winningIndexes.slice(0)
             game.winningIndexes = winningIndexes
             game.status = 'over'
-
-            updatedGame = await game.save()
-            console.log(updatedGame)
           } else if (game.step === 9) {
             // case if step is out of bound
             game.draw = true
             game.status = 'over'
-
-            updatedGame = await game.save()
-            console.log(updatedGame)
-          } else {
-            // case game continues
-            updatedGame = await game.save()
-            console.log(updatedGame)
           }
+
+          updatedGame = await game.save()
 
           io.to(gameId).emit('click_update', {
             updatedGame
@@ -85,7 +88,27 @@ function socketInit(server) {
     })
 
     // Disconnection
-    socket.on('disconnect', () => {
+    socket.on('disconnect', async () => {
+      const accessToken = socket.handshake.query.token
+      const { userId } = verify(accessToken, process.env.ACCESS_TOKEN_SECRET)
+
+      const game = await Game.findOne({
+        $or: [{ player1: userId }, { player2: userId }],
+        status: 'active'
+      })
+
+      if (userId == game.player1) {
+        game.player1Status = 'disconnected'
+      } else if (userId == game.player2) {
+        game.player2Status = 'disconnected'
+      }
+
+      const updatedGame = await game.save()
+
+      io.to(game.id).emit('disconnect_update', {
+        updatedGame
+      })
+
       console.log(`${socket.id} is disconnected`)
     })
   })

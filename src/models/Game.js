@@ -13,8 +13,16 @@ const gameSchema = new Schema(
       type: Schema.Types.ObjectId,
       required: true
     },
+    player1Status: {
+      type: String,
+      enum: ['connected', 'disconnected']
+    },
     player2: {
       type: Schema.Types.ObjectId
+    },
+    player2Status: {
+      type: String,
+      enum: ['connected', 'disconnected']
     },
     board: {
       type: [String],

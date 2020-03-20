@@ -34,4 +34,22 @@ router.patch('/games/:id', auth, async (req, res) => {
   }
 })
 
+router.get('/games/stats', auth, async (req, res) => {
+  const user = req.query.user
+  const query = { $or: [{ player1: user }, { player2: user }] }
+  // query params containing winner
+  if (req.query.winner === 'true') {
+    query.winner = user
+  }
+
+  // query params containing draw
+  if (req.query.draw === 'true') {
+    query.draw = true
+  }
+
+  const games = await Game.find(query).count()
+
+  res.status(200).send({ games })
+})
+
 module.exports = router
