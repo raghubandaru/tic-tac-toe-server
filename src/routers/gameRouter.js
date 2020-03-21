@@ -56,18 +56,18 @@ router.patch('/games/:id', auth, async (req, res) => {
 })
 
 router.get('/games/active', auth, async (req, res) => {
-  const userId = req.user._id
+  const userId = req.user.id
 
-  const game = await Game.findOne({
-    $or: [{ player1: userId }, { player2: userId }],
-    status: { $ne: 'over' }
-  })
+  try {
+    const game = await Game.findOne({
+      $or: [{ player1: userId }, { player2: userId }],
+      status: { $ne: 'over' }
+    })
 
-  if (game) {
-    return res.status(200).send({ game })
+    res.status(200).send({ game })
+  } catch (error) {
+    res.status(400).send()
   }
-
-  res.status(400).send()
 })
 
 router.get('/games/stats', auth, async (req, res) => {
@@ -86,6 +86,18 @@ router.get('/games/stats', auth, async (req, res) => {
   const games = await Game.find(query).count()
 
   res.status(200).send({ games })
+})
+
+router.get('/games/:id', auth, async (req, res) => {
+  const gameId = req.params.id
+
+  const game = await Game.findById(gameId)
+
+  if (game) {
+    return res.status(200).send({ game })
+  }
+
+  res.status(400).send()
 })
 
 module.exports = router
