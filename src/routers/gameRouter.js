@@ -6,6 +6,17 @@ const { Game } = require('../models')
 const router = express.Router()
 
 router.post('/games', auth, async (req, res) => {
+  const userId = req.user._id
+
+  const game = await Game.findOne({
+    $or: [{ player1: userId }, { player2: userId }],
+    status: { $ne: 'over' }
+  })
+
+  if (game) {
+    return res.status(400).send({ error: 'Please quit any active games' })
+  }
+
   try {
     const game = new Game({ player1: req.user._id })
     const gameSaved = await game.save()
@@ -17,7 +28,17 @@ router.post('/games', auth, async (req, res) => {
 })
 
 router.patch('/games/:id', auth, async (req, res) => {
+  const userId = req.user._id
   const id = req.params.id
+
+  const game = await Game.findOne({
+    $or: [{ player1: userId }, { player2: userId }],
+    status: { $ne: 'over' }
+  })
+
+  if (game) {
+    return res.status(400).send()
+  }
 
   try {
     const game = await Game.findById(id)
@@ -32,6 +53,21 @@ router.patch('/games/:id', auth, async (req, res) => {
   } catch (error) {
     res.status(400).send(error)
   }
+})
+
+router.get('/games/active', auth, async (req, res) => {
+  const userId = req.user._id
+
+  const game = await Game.findOne({
+    $or: [{ player1: userId }, { player2: userId }],
+    status: { $ne: 'over' }
+  })
+
+  if (game) {
+    return res.status(200).send({ game })
+  }
+
+  res.status(400).send()
 })
 
 router.get('/games/stats', auth, async (req, res) => {

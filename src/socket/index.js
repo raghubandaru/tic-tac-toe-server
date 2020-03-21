@@ -103,7 +103,18 @@ function socketInit(server) {
         game.player2Status = 'disconnected'
       }
 
+      if (
+        game.player1Status === 'disconnected' &&
+        game.player2Status === 'disconnected' &&
+        game.winningIndexes.length === 0 &&
+        !game.draw
+      ) {
+        game.draw = true
+        game.status = 'over'
+      }
+
       const updatedGame = await game.save()
+      console.log('disconnect', updatedGame)
 
       io.to(game.id).emit('disconnect_update', {
         updatedGame
