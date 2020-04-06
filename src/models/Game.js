@@ -9,6 +9,10 @@ const gameSchema = new Schema(
       enum: ['waiting', 'active', 'over'],
       default: 'waiting'
     },
+    code: {
+      type: String,
+      required: true
+    },
     player1: {
       type: Schema.Types.ObjectId,
       required: true

@@ -1,4 +1,5 @@
 const express = require('express')
+const shortid = require('shortid')
 
 const { auth } = require('../middlewares')
 const { Game } = require('../models')
@@ -6,7 +7,7 @@ const { Game } = require('../models')
 const router = express.Router()
 
 router.post('/games', auth, async (req, res) => {
-  const userId = req.user._id
+  const userId = req.user.id
 
   const game = await Game.findOne({
     $or: [{ player1: userId }, { player2: userId }],
@@ -18,7 +19,8 @@ router.post('/games', auth, async (req, res) => {
   }
 
   try {
-    const game = new Game({ player1: req.user._id })
+    const code = shortid.generate()
+    const game = new Game({ code, player1: req.user._id })
     const gameSaved = await game.save()
 
     res.status(201).send({ game: gameSaved })
@@ -27,9 +29,9 @@ router.post('/games', auth, async (req, res) => {
   }
 })
 
-router.patch('/games/:id', auth, async (req, res) => {
+router.patch('/games/:code', auth, async (req, res) => {
   const userId = req.user._id
-  const id = req.params.id
+  const code = req.params.code
 
   const game = await Game.findOne({
     $or: [{ player1: userId }, { player2: userId }],
@@ -41,9 +43,15 @@ router.patch('/games/:id', auth, async (req, res) => {
   }
 
   try {
-    const game = await Game.findById(id)
+    const game = await Game.findOne({ code, status: 'waiting' })
 
-    game.player2 = req.user._id
+    if (!game) {
+      return res
+        .status(400)
+        .send({ error: 'Either invalid code or Game is not active anymore' })
+    }
+
+    game.player2 = req.user.id
     game.status = 'active'
     game.turn = game.player1.toString()
 
