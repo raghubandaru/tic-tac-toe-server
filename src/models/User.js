@@ -39,7 +39,7 @@ const userSchema = new Schema(
   }
 )
 
-userSchema.methods.toJSON = function() {
+userSchema.methods.toJSON = function () {
   const user = this
   const userObject = user.toObject()
 
@@ -48,7 +48,7 @@ userSchema.methods.toJSON = function() {
   return userObject
 }
 
-userSchema.methods.generateAccessToken = function() {
+userSchema.methods.generateAccessToken = function () {
   const user = this
 
   return sign({ userId: user.id }, process.env.ACCESS_TOKEN_SECRET, {
@@ -56,7 +56,7 @@ userSchema.methods.generateAccessToken = function() {
   })
 }
 
-userSchema.methods.generateRefreshToken = function() {
+userSchema.methods.generateRefreshToken = function () {
   const user = this
 
   return sign(
@@ -66,17 +66,17 @@ userSchema.methods.generateRefreshToken = function() {
   )
 }
 
-userSchema.statics.findByCredentials = async function(email, password) {
+userSchema.statics.findByCredentials = async function (email, password) {
   const user = await User.findOne({ email })
-  if (!user) throw new Error('Invalid Credentials')
+  if (!user) throw new Error('Email or Password did not match')
 
   const isMatch = await compare(password, user.password)
-  if (!isMatch) throw new Error('Invalid Credentials')
+  if (!isMatch) throw new Error('Email or Password did not match')
 
   return user
 }
 
-userSchema.pre('save', async function(next) {
+userSchema.pre('save', async function (next) {
   const user = this
 
   if (user.isModified('password')) {

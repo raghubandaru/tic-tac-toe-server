@@ -43,21 +43,23 @@ router.patch('/games/:code', auth, async (req, res) => {
   }
 
   try {
-    const game = await Game.findOne({ code, status: 'waiting' })
+    const game = await Game.findOne({ code })
 
     if (!game) {
-      return res
-        .status(400)
-        .send({ error: 'Either invalid code or Game is not active anymore' })
+      return res.status(400).send({ error: 'Invalid code' })
+    } else {
+      if (game.status !== 'waiting') {
+        return res.status(400).send({ error: 'Game is not active anymore' })
+      }
+
+      game.player2 = req.user.id
+      game.status = 'active'
+      game.turn = game.player1.toString()
+
+      const updatedGame = await game.save()
+
+      res.send({ updatedGame })
     }
-
-    game.player2 = req.user.id
-    game.status = 'active'
-    game.turn = game.player1.toString()
-
-    const updatedGame = await game.save()
-
-    res.send({ updatedGame })
   } catch (error) {
     res.status(400).send(error)
   }
