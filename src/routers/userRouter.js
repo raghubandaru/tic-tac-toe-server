@@ -1,8 +1,11 @@
+const bcrypt = require('bcryptjs')
 const cookieParser = require('cookie-parser')
+const crypto = require('crypto')
 const express = require('express')
 const { verify } = require('jsonwebtoken')
 const multipart = require('connect-multiparty')
 
+const { sendResetPasswordEmail } = require('../emails/resetPassword')
 const { auth } = require('../middlewares')
 const { cloudinary } = require('../utils')
 const { User } = require('../models')
@@ -65,30 +68,6 @@ router.post('/users/login', async (req, res) => {
   }
 })
 
-router.patch('/users/:id', auth, multipart(), async (req, res) => {
-  if (req.files) {
-    cloudinary.uploader.upload(
-      req.files.file.path,
-      {
-        upload_preset: process.env.CLOUDINARY_UPLOAD_PRESET,
-        public_id: req.user.id
-      },
-      function (error, result) {
-        if (error) {
-          throw new Error('Unable to upload')
-        }
-        User.findByIdAndUpdate(
-          req.user.id,
-          { avatar: `${result.version}/${result.public_id}` },
-          { new: true }
-        ).then(user => {
-          res.status(201).send({ user })
-        })
-      }
-    )
-  }
-})
-
 router.post('/users/refresh_token', cookieParser(), async (req, res) => {
   const refreshToken = req.cookies.tid
 
@@ -121,6 +100,84 @@ router.post('/users/refresh_token', cookieParser(), async (req, res) => {
   return res.status(201).send({ ok: true, accessToken })
 })
 
+router.post('/users/reset_password/generate_token', async (req, res) => {
+  const { email } = req.body
+
+  try {
+    const user = await User.findOne({ email })
+
+    if (!user) {
+      throw new Error('Account with the email address does not exist')
+    }
+
+    const randomString = crypto.randomBytes(20).toString('hex')
+    user.resetPasswordToken = await bcrypt.hash(randomString, 12)
+    user.resetPasswordExpiresIn = Date.now() + 3600000
+    await user.save()
+
+    const resetURL = `${process.env.ALLOWED_ORIGIN}/reset_password/${user._id}/${randomString}`
+    // send password reset email
+    sendResetPasswordEmail(user.email, resetURL, user.name)
+
+    res
+      .status(201)
+      .send({ message: '✔️ Please check your email for the following steps' })
+  } catch (error) {
+    res.status(400).send({ error: error.message })
+  }
+})
+
+router.post('/users/reset_password/change_password', async (req, res) => {
+  const { userId, password, confirmPassword } = req.body
+
+  if (password !== confirmPassword) {
+    throw new Error('Password and Confirm password do not match')
+  }
+
+  const user = await User.findById(userId)
+
+  if (!user) {
+    throw new Error('Invalid user')
+  }
+
+  user.password = password
+  user.resetPasswordToken = undefined
+  user.resetPasswordExpiresIn = undefined
+  await user.save()
+
+  res.status(201).send({ message: '✔️ Password reset success' })
+})
+
+router.get('/users/reset_password/:userId/:resetToken', async (req, res) => {
+  const { resetToken, userId } = req.params
+
+  try {
+    const user = await User.findById(userId)
+
+    if (!user) {
+      throw new Error('Invalid user')
+    }
+
+    if (user.resetPasswordToken && user.resetPasswordExpiresIn) {
+      if (user.resetPasswordExpiresIn.getTime() < Date.now()) {
+        throw new Error('❌ Token is invalid')
+      }
+
+      const isMatch = await bcrypt.compare(resetToken, user.resetPasswordToken)
+
+      if (!isMatch) {
+        throw new Error('❌ Token is invalid')
+      }
+
+      res.status(200).send({ message: '✔️ Token is valid' })
+    } else {
+      res.status(400).send({ error: '❌ Token is invalid' })
+    }
+  } catch (error) {
+    res.status(400).send({ error: error.message })
+  }
+})
+
 router.get('/users/me', auth, async (req, res) => {
   res.status(200).send({ user: req.user })
 })
@@ -131,6 +188,30 @@ router.get('/users/:id', async (req, res) => {
     res.status(200).send({ user })
   } catch (error) {
     res.status(400).send({ error })
+  }
+})
+
+router.patch('/users/:id', auth, multipart(), async (req, res) => {
+  if (req.files) {
+    cloudinary.uploader.upload(
+      req.files.file.path,
+      {
+        upload_preset: process.env.CLOUDINARY_UPLOAD_PRESET,
+        public_id: req.user.id
+      },
+      function (error, result) {
+        if (error) {
+          throw new Error('Unable to upload')
+        }
+        User.findByIdAndUpdate(
+          req.user.id,
+          { avatar: `${result.version}/${result.public_id}` },
+          { new: true }
+        ).then(user => {
+          res.status(201).send({ user })
+        })
+      }
+    )
   }
 })
 
