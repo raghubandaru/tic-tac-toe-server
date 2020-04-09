@@ -93,7 +93,7 @@ router.get('/games/stats', auth, async (req, res) => {
     query.draw = true
   }
 
-  const games = await Game.find(query).count()
+  const games = await Game.find(query).countDocuments()
 
   res.status(200).send({ games })
 })

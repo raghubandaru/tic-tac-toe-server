@@ -29,16 +29,20 @@ function socketInit(server) {
       const accessToken = socket.handshake.query.token
       const { userId } = verify(accessToken, process.env.ACCESS_TOKEN_SECRET)
 
-      if (userId == game.player1) {
-        game.player1Status = 'connected'
-      } else if (userId == game.player2) {
-        game.player2Status = 'connected'
-      }
-
-      const updatedGame = await game.save()
-
       socket.join(gameId)
-      io.to(gameId).emit('game_update', { game: updatedGame })
+
+      if (game) {
+        const connectionGameUpdate = updatePlayerConnection(
+          userId,
+          socket.id,
+          game
+        )
+        const updatedGame = await connectionGameUpdate.save()
+
+        io.to(gameId).emit('game_update', { game: updatedGame })
+      } else {
+        io.to(gameId).emit('game_update', { game })
+      }
     })
 
     socket.on('click', async ({ gameId, index }) => {
@@ -87,42 +91,72 @@ function socketInit(server) {
       }
     })
 
-    // Disconnection
     socket.on('disconnect', async () => {
       const accessToken = socket.handshake.query.token
       const { userId } = verify(accessToken, process.env.ACCESS_TOKEN_SECRET)
 
+      // Check the game that the user is associated with is still active or waiting mode
       const game = await Game.findOne({
         $or: [{ player1: userId }, { player2: userId }],
-        status: 'active'
+        $or: [{ status: 'active' }, { status: 'waiting' }]
       })
 
-      if (userId == game.player1) {
-        game.player1Status = 'disconnected'
-      } else if (userId == game.player2) {
-        game.player2Status = 'disconnected'
+      if (game) {
+        const disconnectionGameUpdate = disconnectPlayerConnection(
+          userId,
+          socket.id,
+          game
+        )
+
+        if (isGameOver(game)) {
+          disconnectionGameUpdate.draw = true
+          disconnectionGameUpdate.status = 'over'
+        }
+
+        const updatedGame = await disconnectionGameUpdate.save()
+
+        io.to(game.id).emit('disconnect_update', {
+          updatedGame
+        })
+
+        console.log(`${socket.id} is disconnected`)
       }
-
-      if (
-        game.player1Status === 'disconnected' &&
-        game.player2Status === 'disconnected' &&
-        game.winningIndexes.length === 0 &&
-        !game.draw
-      ) {
-        game.draw = true
-        game.status = 'over'
-      }
-
-      const updatedGame = await game.save()
-      console.log('disconnect', updatedGame)
-
-      io.to(game.id).emit('disconnect_update', {
-        updatedGame
-      })
-
-      console.log(`${socket.id} is disconnected`)
     })
   })
+}
+
+function updatePlayerConnection(userId, socketId, game) {
+  if (userId == game.player1) {
+    game.player1Connections = [...game.player1Connections, socketId]
+  } else if (userId == game.player2) {
+    game.player2Connections = [...game.player2Connections, socketId]
+  }
+
+  return game
+}
+
+function disconnectPlayerConnection(userId, socketId, game) {
+  if (userId == game.player1) {
+    game.player1Connections = game.player1Connections.filter(
+      id => id !== socketId
+    )
+  } else if (userId == game.player2) {
+    game.player2Connections = game.player2Connections.filter(
+      id => id !== socketId
+    )
+  }
+
+  return game
+}
+
+function isGameOver(game) {
+  return (
+    game.status === 'active' &&
+    game.player1Connections.length === 0 &&
+    game.player2Connections.length === 0 &&
+    game.winningIndexes.length === 0 &&
+    !game.draw
+  )
 }
 
 module.exports = socketInit
