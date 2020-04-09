@@ -82,20 +82,24 @@ router.get('/games/active', auth, async (req, res) => {
 
 router.get('/games/stats', auth, async (req, res) => {
   const user = req.query.user
-  const query = { $or: [{ player1: user }, { player2: user }] }
-  // query params containing winner
-  if (req.query.winner === 'true') {
-    query.winner = user
+
+  if (user) {
+    const totalQuery = { $or: [{ player1: user }, { player2: user }] }
+    const winnerQuery = { ...totalQuery, winner: user }
+    const drawQuery = { ...totalQuery, draw: true }
+
+    const [total, win, draw] = await Promise.all([
+      Game.find(totalQuery).countDocuments(),
+      Game.find(winnerQuery).countDocuments(),
+      Game.find(drawQuery).countDocuments()
+    ]).catch(error => res.status(400).send({ error }))
+
+    const stats = { total, win, draw }
+
+    res.status(200).send({ stats })
+  } else {
+    res.status(400).send({ error: 'User required' })
   }
-
-  // query params containing draw
-  if (req.query.draw === 'true') {
-    query.draw = true
-  }
-
-  const games = await Game.find(query).countDocuments()
-
-  res.status(200).send({ games })
 })
 
 router.get('/games/:id', auth, async (req, res) => {
