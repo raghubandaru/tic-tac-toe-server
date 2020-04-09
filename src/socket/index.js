@@ -18,12 +18,6 @@ function socketInit(server) {
   })
 
   io.on('connection', socket => {
-    // Incoming connection
-    console.log('New connection', socket.id)
-
-    // emit
-    io.emit('event', { text: 'hello' })
-
     socket.on('join', async ({ gameId }) => {
       const game = await Game.findById(gameId)
       const accessToken = socket.handshake.query.token
@@ -49,7 +43,7 @@ function socketInit(server) {
       try {
         const game = await Game.findById(gameId)
         // user can click (interact) with the active game
-        if (game.status === 'active') {
+        if (game && game.status === 'active') {
           let value
 
           // even steps --> 'X' odd steps --> 'O
@@ -118,8 +112,6 @@ function socketInit(server) {
         io.to(game.id).emit('disconnect_update', {
           updatedGame
         })
-
-        console.log(`${socket.id} is disconnected`)
       }
     })
   })
