@@ -9,7 +9,10 @@ function sendResetPasswordEmail(email, link, name) {
     to: email,
     from: process.env.FROM_EMAIL,
     subject: 'Tic Tac Toe Account Reset Password',
-    html: `<p>Hi ${name},</p><p>Your reset password link is here <a href=${link}>Click here to reset password</a><p>`
+    html: `<p>Hi ${name},</p>
+    <p>Your reset password link is here <a href=${link}>Click here to reset password</a><p>
+    <p>For security purposes above link is valid only for just an hour.</p>
+    `
   })
 }
 
