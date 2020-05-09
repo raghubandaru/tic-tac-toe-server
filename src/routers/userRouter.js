@@ -208,7 +208,7 @@ router.patch('/users/:id', auth, multipart(), async (req, res) => {
           { avatar: `${result.version}/${result.public_id}` },
           { new: true }
         ).then(user => {
-          res.status(201).send({ user })
+          res.status(200).send({ user })
         })
       }
     )
